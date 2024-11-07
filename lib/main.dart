@@ -197,15 +197,44 @@ class _GuessScreenState extends State<GuessScreen> {
 
     return familyMembers;
   }
-
   List<String> familyMembers = [];
+  late List<String> images;
 
   @override
   void initState() {
     super.initState();
-    loadFamilyMembers();
+    initializeData();
   }
 
+  Future<void> initializeData() async {
+    final List<String> members = await getFamilyMembers();
+    print('The family members are: $members');
+    final List<String> imagePaths = generateImagePaths(members);
+    print('generateImagePaths was called. here are its members $members');
+    setState(() {
+      familyMembers = members;
+      images = imagePaths;
+    });
+  }
+
+  List<String> generateImagePaths(List<String> members) {
+    return members.map((member) {
+      String fileName = member.toLowerCase();
+      return 'images/family/$fileName.png';
+    }).toList();
+  }
+
+  // List<String> familyMembers = [];
+  // late final List<String> images;
+  //
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   loadFamilyMembers();
+  //   images = generateImagePaths(familyMembers);
+  //   print('images: $images');
+  // }
+  //
   Future<void> loadFamilyMembers() async {
     final List<String> members = await getFamilyMembers();
     setState(() {
@@ -213,13 +242,21 @@ class _GuessScreenState extends State<GuessScreen> {
     });
   }
 
-  final List<String> images = [
-    'images/family/mom.JPG',
-    'images/family/dad.png',
-    'images/family/isaiah.jpg',
-    'images/family/alysia.JPG',
-    'images/family/kaiden.JPG'
-  ];
+  // final List<String> images = [
+  //   'images/family/mom.JPG',
+  //   'images/family/dad.png',
+  //   'images/family/isaiah.jpg',
+  //   'images/family/alysia.JPG',
+  //   'images/family/kaiden.JPG'
+  // ];
+
+  // List<String> generateImagePaths(List<String> members) {
+  //   print('generateImagePaths was called. here are its members $members');
+  //   return members.map((member) {
+  //     String fileName = member.toLowerCase();
+  //     return 'images/family/$fileName.jpg';
+  //   }).toList();
+  // }
 
   int selectedMemberIndex = -1;
   bool isSpinning = false;
