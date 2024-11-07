@@ -208,9 +208,7 @@ class _GuessScreenState extends State<GuessScreen> {
 
   Future<void> initializeData() async {
     final List<String> members = await getFamilyMembers();
-    print('The family members are: $members');
     final List<String> imagePaths = generateImagePaths(members);
-    print('generateImagePaths was called. here are its members $members');
     setState(() {
       familyMembers = members;
       images = imagePaths;
@@ -224,39 +222,12 @@ class _GuessScreenState extends State<GuessScreen> {
     }).toList();
   }
 
-  // List<String> familyMembers = [];
-  // late final List<String> images;
-  //
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   loadFamilyMembers();
-  //   images = generateImagePaths(familyMembers);
-  //   print('images: $images');
-  // }
-  //
   Future<void> loadFamilyMembers() async {
     final List<String> members = await getFamilyMembers();
     setState(() {
       familyMembers = members;
     });
   }
-
-  // final List<String> images = [
-  //   'images/family/mom.JPG',
-  //   'images/family/dad.png',
-  //   'images/family/isaiah.jpg',
-  //   'images/family/alysia.JPG',
-  //   'images/family/kaiden.JPG'
-  // ];
-
-  // List<String> generateImagePaths(List<String> members) {
-  //   print('generateImagePaths was called. here are its members $members');
-  //   return members.map((member) {
-  //     String fileName = member.toLowerCase();
-  //     return 'images/family/$fileName.jpg';
-  //   }).toList();
-  // }
 
   int selectedMemberIndex = -1;
   bool isSpinning = false;
@@ -360,15 +331,17 @@ class _GuessScreenState extends State<GuessScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-                AnimatedRotation(
-                  turns: isSpinning ? 3 : 0,
-                  duration: const Duration(seconds: 2),
-                  child: Image.asset(
-                    selectedMemberIndex >= 0
-                        ? images[selectedMemberIndex]
-                        : 'images/spinner.png', // Placeholder spinner image
-                    height: 300,
-                    width: 300,
+                ClipOval(
+                  child: AnimatedRotation(
+                    turns: isSpinning ? 3 : 0,
+                    duration: const Duration(seconds: 2),
+                    child: Image.asset(
+                      selectedMemberIndex >= 0
+                          ? images[selectedMemberIndex]
+                          : 'images/spinner.png', // Placeholder spinner image
+                      height: 300,
+                      width: 300,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
