@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 void main() => runApp(WhosThatApp());
 
@@ -203,7 +204,52 @@ class _GuessScreenState extends State<GuessScreen> {
   @override
   void initState() {
     super.initState();
+    _checkAndPromptForImages();
     initializeData();
+  }
+
+  Future<void> _checkAndPromptForImages() async {
+    final directory = await _getFamilyImagesDirectory();
+    final files = directory.listSync();
+    if (files.isEmpty) {
+      _promptUserToUploadImages();
+    }
+  }
+
+  Future<Directory> _getFamilyImagesDirectory() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final familyDir = Directory('${appDir.path}/images/family');
+    if (!await familyDir.exists()) {
+      await familyDir.create(recursive: true);
+    }
+    return familyDir;
+  }
+
+  void _promptUserToUploadImages() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('No Images Found'),
+          content: Text('Would you like to upload images?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _addPicture();
+              },
+              child: Text('Upload'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> initializeData() async {
@@ -231,11 +277,23 @@ class _GuessScreenState extends State<GuessScreen> {
 
   int selectedMemberIndex = -1;
   bool isSpinning = false;
+  final player = AudioPlayer();
 
   void spinWheel() {
     setState(() {
       isSpinning = true;
     });
+
+    // Give thanks to Sound Effect from <a href="https://pixabay.com/sound-effects/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=36693">Pixabay</a>
+    // Sound Effect by <a href="https://pixabay.com/users/pw23check-44527802/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=218995">PW23CHECK</a> from <a href="https://pixabay.com/sound-effects//?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=218995">Pixabay</a>
+    // Sound Effect from <a href="https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=91932">Pixabay</a>
+    // Sound Effect from <a href="https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=89697">Pixabay</a>
+    // Sound Effect from <a href="https://pixabay.com/sound-effects/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=6008">Pixabay</a>
+
+    // Set the release mode to keep the source after playback has completed.
+    player.setReleaseMode(ReleaseMode.stop);
+    player.play(AssetSource('wheel_spin_short.mp4')); // Play the spinning sound
+
 
     // Simulate a spin delay
     Future.delayed(const Duration(seconds: 2), () {
@@ -244,37 +302,101 @@ class _GuessScreenState extends State<GuessScreen> {
         isSpinning = false;
       });
     });
+
+    // Stop the spinning sound
+    // player.stop();
   }
+
+  void showKidFriendlyDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Center(
+          child: Material(
+            type: MaterialType.transparency,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.8,
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.yellow[100],
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.orange, width: 3),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.star,
+                    color: Colors.orange,
+                    size: 50,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: 'Comic Sans MS',
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      fontFamily: 'Comic Sans MS',
+                      fontSize: 18,
+                      color: Colors.brown,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      // primary: Colors.orange,
+                      backgroundColor: Colors.white, // Sets the button's background color to green
+                      foregroundColor: Colors.orange,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: Text(
+                      'OK',
+                      style: TextStyle(
+                        fontFamily: 'Comic Sans MS',
+                        fontSize: 20,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
 
   void guess(String guess) {
     if (guess == familyMembers[selectedMemberIndex]) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Correct!'),
-          content: const Text('You guessed it right!'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+
+      showKidFriendlyDialog(context, 'Correct!', 'You guessed it right!');
+      // Set the release mode to keep the source after playback has completed.
+      player.setReleaseMode(ReleaseMode.stop);
+      player.play(AssetSource('won_game.mp3')); // Play the spinning sound
+
     } else {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Try Again!'),
-          content: const Text('That\'s not the right answer.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+
+      showKidFriendlyDialog(context, 'Try Again!', 'That\'s not the right answer.');
+      // Set the release mode to keep the source after playback has completed.
+      player.setReleaseMode(ReleaseMode.stop);
+      player.play(AssetSource('lost_game.mp3')); // Play the spinning sound
     }
   }
 
