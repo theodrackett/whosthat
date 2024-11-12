@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() => runApp(WhosThatApp());
 
@@ -32,140 +33,170 @@ class _GuessScreenState extends State<GuessScreen> {
       ? s[0].toUpperCase() + s.substring(1).toLowerCase()
       : s;
 
-  Future<void> _addPicture() async {
-    final TextEditingController nameController = TextEditingController();
-    final ImagePicker picker = ImagePicker();
+Future<void> requestPhotoLibraryPermission() async {
+  PermissionStatus status = await Permission.photos.status;
 
-    // Prompt for name
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Enter Name'),
-          content: TextField(
-            controller: nameController,
-            decoration: InputDecoration(hintText: "Name"),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-
-    String name = nameController.text.trim();
-    if (name.isEmpty) return;
-
-    // Pick image
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image == null) return;
-
-    // Crop image
-    final CroppedFile? croppedImage = await ImageCropper().cropImage(
-      sourcePath: image.path,
-      aspectRatio: CropAspectRatio(ratioX: 16, ratioY: 9),
-      // aspectRatios: [
-      //   CropAspectRatioPreset.square,
-      //   CropAspectRatioPreset.ratio3x2,
-      //   CropAspectRatioPreset.original,
-      //   CropAspectRatioPreset.ratio4x3,
-      //   CropAspectRatioPreset.ratio16x9
-      // ],
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: Colors.deepOrange,
-          toolbarWidgetColor: Colors.white,
-          initAspectRatio: CropAspectRatioPreset.original,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(
-          minimumAspectRatio: 1.0,
-        ),
-      ],
-    );
-
-    if (croppedImage == null) return;
-
-    // Save cropped image with the provided name
-    final Directory appDocDir = await getApplicationDocumentsDirectory();
-    final String imagesPath = '${appDocDir.path}/images/family';
-    final Directory imagesDir = Directory(imagesPath);
-
-    if (!await imagesDir.exists()) {
-      await imagesDir.create(recursive: true);
-    }
-
-    final String newPath = '$imagesPath/$name.${croppedImage.path.split('.').last}';
-    await File(croppedImage.path).copy(newPath);
-
-    // Reload family members to include the new image
-    await loadFamilyMembers();
+  if (status.isDenied || status.isRestricted) {
+    // Request permission
+    status = await Permission.photos.request();
   }
 
-  Future<void> _removePicture() async {
-    // Retrieve the list of existing pictures
-    final Directory appDocDir = await getApplicationDocumentsDirectory();
-    final String imagesPath = '${appDocDir.path}/images/family';
-    final Directory imagesDir = Directory(imagesPath);
-
-    if (!await imagesDir.exists()) {
-      // Handle the case where the directory doesn't exist
-      return;
-    }
-
-    final List<FileSystemEntity> files = imagesDir.listSync();
-    final List<String> pictureNames = files
-        .where((file) {
-      final String extension = file.path.split('.').last.toLowerCase();
-      return ['jpg', 'jpeg', 'png'].contains(extension);
-    })
-        .map((file) => file.path.split('/').last)
-        .toList();
-
-    if (pictureNames.isEmpty) {
-      // Handle the case where there are no pictures to remove
-      return;
-    }
-
-    // Display the list and allow the user to select a picture to remove
-    String? selectedPicture = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Select Picture to Remove'),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: pictureNames.map((name) {
-                return ListTile(
-                  title: Text(name),
-                  onTap: () {
-                    Navigator.of(context).pop(name);
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-        );
-      },
-    );
-
-    if (selectedPicture == null) return;
-
-    // Remove the selected picture
-    final File fileToRemove = File('$imagesPath/$selectedPicture');
-    if (await fileToRemove.exists()) {
-      await fileToRemove.delete();
-    }
-
-    // Reload family members to reflect the removed picture
-    await loadFamilyMembers();
+  if (status.isGranted) {
+    // Permission granted, proceed with accessing the photo library
+  } else if (status.isPermanentlyDenied) {
+    // Permission permanently denied, prompt user to open settings
+    openAppSettings();
   }
+}
+
+Future<void> _addPicture() async {
+  requestPhotoLibraryPermission();
+  final TextEditingController nameController = TextEditingController();
+  final ImagePicker picker = ImagePicker();
+
+  // Pick image
+  final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+  if (image == null) return;
+
+  // Crop image
+  final CroppedFile? croppedImage = await ImageCropper().cropImage(
+    sourcePath: image.path,
+    aspectRatio: CropAspectRatio(ratioX: 16, ratioY: 9),
+    uiSettings: [
+      AndroidUiSettings(
+        toolbarTitle: 'Crop Image',
+        toolbarColor: Colors.deepOrange,
+        toolbarWidgetColor: Colors.white,
+        initAspectRatio: CropAspectRatioPreset.original,
+        lockAspectRatio: false,
+      ),
+      IOSUiSettings(
+        minimumAspectRatio: 1.0,
+      ),
+    ],
+  );
+
+  if (croppedImage == null) return;
+
+  // Prompt for name
+  await showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text('Enter Name'),
+        content: TextField(
+          controller: nameController,
+          decoration: InputDecoration(hintText: "Name"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text('OK'),
+          ),
+        ],
+      );
+    },
+  );
+
+  String name = nameController.text.trim();
+  if (name.isEmpty) return;
+
+  // Extract the original extension
+  String originalExtension = image.path.split('.').last;
+
+  // Save cropped image with the provided name and original extension
+  final Directory appDocDir = await getApplicationDocumentsDirectory();
+  final String imagesPath = '${appDocDir.path}/images/family';
+  final Directory imagesDir = Directory(imagesPath);
+
+  if (!await imagesDir.exists()) {
+    await imagesDir.create(recursive: true);
+  }
+
+  final String newPath = '$imagesPath/$name.$originalExtension';
+  await File(croppedImage.path).copy(newPath);
+
+  // // Reload family members to include the new image
+  // await loadFamilyMembers();
+
+    // Update familyMembers and images lists
+  setState(() {
+    familyMembers.add(name);
+    images.add(newPath);
+  });
+}
+Future<void> _removePicture() async {
+  // Retrieve the application's documents directory
+  final Directory appDocDir = await getApplicationDocumentsDirectory();
+  final String imagesPath = '${appDocDir.path}/images/family';
+  final Directory imagesDir = Directory(imagesPath);
+
+  if (!await imagesDir.exists()) {
+    // Handle the case where the directory doesn't exist
+    return;
+  }
+
+  // List all files in the images directory
+  final List<FileSystemEntity> files = imagesDir.listSync();
+  final List<String> pictureNames = files
+      .where((file) {
+        final String extension = file.path.split('.').last.toLowerCase();
+        return ['jpg', 'jpeg', 'png', 'gif', 'bmp'].contains(extension);
+      })
+      .map((file) => file.path.split('/').last)
+      .toList();
+
+  if (pictureNames.isEmpty) {
+    // Handle the case where there are no pictures to remove
+    return;
+  }
+
+  // Display the list and allow the user to select a picture to remove
+  String? selectedPicture = await showDialog<String>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text('Select Picture to Remove'),
+        content: SingleChildScrollView(
+          child: ListBody(
+            children: pictureNames.map((name) {
+              return ListTile(
+                title: Text(name),
+                onTap: () {
+                  Navigator.of(context).pop(name);
+                },
+              );
+            }).toList(),
+          ),
+        ),
+      );
+    },
+  );
+
+  if (selectedPicture == null) return;
+
+  // Remove the selected picture
+  final File fileToRemove = File('$imagesPath/$selectedPicture');
+  if (await fileToRemove.exists()) {
+    await fileToRemove.delete();
+  }
+
+  // Extract the member name from the selected picture's filename
+  final String memberName = selectedPicture.split('.').first;
+
+  // Update the familyMembers and images lists
+  setState(() {
+    familyMembers.removeWhere((member) => member.toLowerCase() == memberName.toLowerCase());
+    images.removeWhere((imagePath) => imagePath.contains(memberName));
+  });
+
+      // Reset selectedMemberIndex if it points to a non-existent index
+    if (selectedMemberIndex >= familyMembers.length) {
+      selectedMemberIndex = -1;
+    }
+}
 
   Future<List<String>> getFamilyMembers() async {
     // Get the application's documents directory
@@ -173,7 +204,6 @@ class _GuessScreenState extends State<GuessScreen> {
     final String imagesPath = '${appDocDir.path}/images/family';
     // List all files in the images directory
     final Directory imagesDir = Directory(imagesPath);
-    // print('imagesDir: $imagesDir');
     // Revisit on real device to see if images get copied to the directory
     // I had to manually copy them to the directory on the emulator
     if (!await imagesDir.exists()) {
@@ -254,19 +284,59 @@ class _GuessScreenState extends State<GuessScreen> {
 
   Future<void> initializeData() async {
     final List<String> members = await getFamilyMembers();
-    final List<String> imagePaths = generateImagePaths(members);
+    final List<String> imagePaths = await generateImagePaths(members);
     setState(() {
       familyMembers = members;
       images = imagePaths;
     });
   }
 
-  List<String> generateImagePaths(List<String> members) {
-    return members.map((member) {
-      String fileName = member.toLowerCase();
-      return 'images/family/$fileName.png';
-    }).toList();
+Future<List<String>> generateImagePaths(List<String> members) async {
+  final List<String> supportedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp'];
+  final List<String> imagePaths = [];
+
+  // Retrieve the application's documents directory
+  final Directory appDocDir = await getApplicationDocumentsDirectory();
+  final String imagesPath = '${appDocDir.path}/images/family';
+  final Directory imagesDir = Directory(imagesPath);
+
+  if (!await imagesDir.exists()) {
+    // If the directory doesn't exist, return an empty list
+    return imagePaths;
   }
+
+  // List all files in the directory
+  final List<FileSystemEntity> files = imagesDir.listSync();
+
+  for (String member in members) {
+    String fileName = member.toLowerCase();
+    bool found = false;
+
+    for (FileSystemEntity file in files) {
+      if (file is File) {
+        String filePath = file.path;
+        String baseName = filePath.split('/').last;
+        String nameWithoutExtension = baseName.split('.').first.toLowerCase();
+        String extension = baseName.split('.').last.toLowerCase();
+
+        if (nameWithoutExtension == fileName && supportedExtensions.contains(extension)) {
+          imagePaths.add(filePath);
+          found = true;
+          break;
+        }
+      }
+    }
+
+    if (!found) {
+      // Handle the case where no matching file was found for the member
+      print('No image found for member: $member');
+    }
+  }
+
+  return imagePaths;
+}
+
+
 
   Future<void> loadFamilyMembers() async {
     final List<String> members = await getFamilyMembers();
@@ -303,8 +373,6 @@ class _GuessScreenState extends State<GuessScreen> {
       });
     });
 
-    // Stop the spinning sound
-    // player.stop();
   }
 
   void showKidFriendlyDialog(BuildContext context, String title, String message) {
@@ -453,7 +521,8 @@ class _GuessScreenState extends State<GuessScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-                ClipOval(
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(150.0), // Make the image rounded
                   child: AnimatedRotation(
                     turns: isSpinning ? 3 : 0,
                     duration: const Duration(seconds: 2),
@@ -461,8 +530,9 @@ class _GuessScreenState extends State<GuessScreen> {
                       selectedMemberIndex >= 0
                           ? images[selectedMemberIndex]
                           : 'images/spinner.png', // Placeholder spinner image
-                      height: 300,
-                      width: 300,
+                      height: 350,
+                      width: 350,
+                      fit: BoxFit.cover, // Ensure the image covers the container
                     ),
                   ),
                 ),
