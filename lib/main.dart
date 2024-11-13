@@ -6,6 +6,8 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:confetti/confetti.dart';
 
 void main() => runApp(WhosThatApp());
 
@@ -28,175 +30,199 @@ class GuessScreen extends StatefulWidget {
 }
 
 class _GuessScreenState extends State<GuessScreen> {
+  final FlutterTts flutterTts = FlutterTts();
+  late ConfettiController _confettiController;
 
-  String capitalize(String s) => s.isNotEmpty
-      ? s[0].toUpperCase() + s.substring(1).toLowerCase()
-      : s;
-
-Future<void> requestPhotoLibraryPermission() async {
-  PermissionStatus status = await Permission.photos.status;
-
-  if (status.isDenied || status.isRestricted) {
-    // Request permission
-    status = await Permission.photos.request();
+  @override
+  void initState() {
+    super.initState();
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 2));
+    _checkAndPromptForImages();
+    initializeData();
   }
 
-  if (status.isGranted) {
-    // Permission granted, proceed with accessing the photo library
-  } else if (status.isPermanentlyDenied) {
-    // Permission permanently denied, prompt user to open settings
-    openAppSettings();
+  String capitalize(String s) =>
+      s.isNotEmpty ? s[0].toUpperCase() + s.substring(1).toLowerCase() : s;
+
+  Future<void> _configureTts() async {
+    await flutterTts.setLanguage('en-US');
+    await flutterTts.setSpeechRate(9.9); // Adjust the rate as needed
+    await flutterTts.setVolume(1.0); // Volume level (0.0 to 1.0)
+    await flutterTts.setPitch(2.0); // Pitch level (0.5 to 2.0)
   }
-}
 
-Future<void> _addPicture() async {
-  requestPhotoLibraryPermission();
-  final TextEditingController nameController = TextEditingController();
-  final ImagePicker picker = ImagePicker();
+  Future<void> _speakCongratulatoryMessage(String name) async {
+    String message = "You're right! That's $name!";
+    await flutterTts.speak(message);
+  }
 
-  // Pick image
-  final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-  if (image == null) return;
+  Future<void> requestPhotoLibraryPermission() async {
+    PermissionStatus status = await Permission.photos.status;
 
-  // Crop image
-  final CroppedFile? croppedImage = await ImageCropper().cropImage(
-    sourcePath: image.path,
-    aspectRatio: CropAspectRatio(ratioX: 16, ratioY: 9),
-    uiSettings: [
-      AndroidUiSettings(
-        toolbarTitle: 'Crop Image',
-        toolbarColor: Colors.deepOrange,
-        toolbarWidgetColor: Colors.white,
-        initAspectRatio: CropAspectRatioPreset.original,
-        lockAspectRatio: false,
-      ),
-      IOSUiSettings(
-        minimumAspectRatio: 1.0,
-      ),
-    ],
-  );
+    if (status.isDenied || status.isRestricted) {
+      // Request permission
+      status = await Permission.photos.request();
+    }
 
-  if (croppedImage == null) return;
+    if (status.isGranted) {
+      // Permission granted, proceed with accessing the photo library
+    } else if (status.isPermanentlyDenied) {
+      // Permission permanently denied, prompt user to open settings
+      openAppSettings();
+    }
+  }
 
-  // Prompt for name
-  await showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text('Enter Name'),
-        content: TextField(
-          controller: nameController,
-          decoration: InputDecoration(hintText: "Name"),
+  Future<void> _addPicture() async {
+    requestPhotoLibraryPermission();
+    final TextEditingController nameController = TextEditingController();
+    final ImagePicker picker = ImagePicker();
+
+    // Pick image
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image == null) return;
+
+    // Crop image
+    final CroppedFile? croppedImage = await ImageCropper().cropImage(
+      sourcePath: image.path,
+      aspectRatio: CropAspectRatio(ratioX: 16, ratioY: 9),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Image',
+          toolbarColor: Colors.deepOrange,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.original,
+          lockAspectRatio: false,
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: Text('OK'),
+        IOSUiSettings(
+          minimumAspectRatio: 1.0,
+        ),
+      ],
+    );
+
+    if (croppedImage == null) return;
+
+    // Prompt for name
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Enter Name'),
+          content: TextField(
+            controller: nameController,
+            decoration: InputDecoration(hintText: "Name"),
           ),
-        ],
-      );
-    },
-  );
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
 
-  String name = nameController.text.trim();
-  if (name.isEmpty) return;
+    String name = nameController.text.trim();
+    if (name.isEmpty) return;
 
-  // Extract the original extension
-  String originalExtension = image.path.split('.').last;
+    // Extract the original extension
+    String originalExtension = image.path.split('.').last;
 
-  // Save cropped image with the provided name and original extension
-  final Directory appDocDir = await getApplicationDocumentsDirectory();
-  final String imagesPath = '${appDocDir.path}/images/family';
-  final Directory imagesDir = Directory(imagesPath);
+    // Save cropped image with the provided name and original extension
+    final Directory appDocDir = await getApplicationDocumentsDirectory();
+    final String imagesPath = '${appDocDir.path}/images/family';
+    final Directory imagesDir = Directory(imagesPath);
 
-  if (!await imagesDir.exists()) {
-    await imagesDir.create(recursive: true);
-  }
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
 
-  final String newPath = '$imagesPath/$name.$originalExtension';
-  await File(croppedImage.path).copy(newPath);
+    final String newPath = '$imagesPath/$name.$originalExtension';
+    await File(croppedImage.path).copy(newPath);
 
-  // // Reload family members to include the new image
-  // await loadFamilyMembers();
+    // // Reload family members to include the new image
+    // await loadFamilyMembers();
 
     // Update familyMembers and images lists
-  setState(() {
-    familyMembers.add(name);
-    images.add(newPath);
-  });
-}
-Future<void> _removePicture() async {
-  // Retrieve the application's documents directory
-  final Directory appDocDir = await getApplicationDocumentsDirectory();
-  final String imagesPath = '${appDocDir.path}/images/family';
-  final Directory imagesDir = Directory(imagesPath);
-
-  if (!await imagesDir.exists()) {
-    // Handle the case where the directory doesn't exist
-    return;
+    setState(() {
+      familyMembers.add(name);
+      images.add(newPath);
+    });
   }
 
-  // List all files in the images directory
-  final List<FileSystemEntity> files = imagesDir.listSync();
-  final List<String> pictureNames = files
-      .where((file) {
-        final String extension = file.path.split('.').last.toLowerCase();
-        return ['jpg', 'jpeg', 'png', 'gif', 'bmp'].contains(extension);
-      })
-      .map((file) => file.path.split('/').last)
-      .toList();
+  Future<void> _removePicture() async {
+    // Retrieve the application's documents directory
+    final Directory appDocDir = await getApplicationDocumentsDirectory();
+    final String imagesPath = '${appDocDir.path}/images/family';
+    final Directory imagesDir = Directory(imagesPath);
 
-  if (pictureNames.isEmpty) {
-    // Handle the case where there are no pictures to remove
-    return;
-  }
+    if (!await imagesDir.exists()) {
+      // Handle the case where the directory doesn't exist
+      return;
+    }
 
-  // Display the list and allow the user to select a picture to remove
-  String? selectedPicture = await showDialog<String>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text('Select Picture to Remove'),
-        content: SingleChildScrollView(
-          child: ListBody(
-            children: pictureNames.map((name) {
-              return ListTile(
-                title: Text(name),
-                onTap: () {
-                  Navigator.of(context).pop(name);
-                },
-              );
-            }).toList(),
+    // List all files in the images directory
+    final List<FileSystemEntity> files = imagesDir.listSync();
+    final List<String> pictureNames = files
+        .where((file) {
+          final String extension = file.path.split('.').last.toLowerCase();
+          return ['jpg', 'jpeg', 'png', 'gif', 'bmp'].contains(extension);
+        })
+        .map((file) => file.path.split('/').last)
+        .toList();
+
+    if (pictureNames.isEmpty) {
+      // Handle the case where there are no pictures to remove
+      return;
+    }
+
+    // Display the list and allow the user to select a picture to remove
+    String? selectedPicture = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Select Picture to Remove'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: pictureNames.map((name) {
+                return ListTile(
+                  title: Text(name),
+                  onTap: () {
+                    Navigator.of(context).pop(name);
+                  },
+                );
+              }).toList(),
+            ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
 
-  if (selectedPicture == null) return;
+    if (selectedPicture == null) return;
 
-  // Remove the selected picture
-  final File fileToRemove = File('$imagesPath/$selectedPicture');
-  if (await fileToRemove.exists()) {
-    await fileToRemove.delete();
-  }
+    // Remove the selected picture
+    final File fileToRemove = File('$imagesPath/$selectedPicture');
+    if (await fileToRemove.exists()) {
+      await fileToRemove.delete();
+    }
 
-  // Extract the member name from the selected picture's filename
-  final String memberName = selectedPicture.split('.').first;
+    // Extract the member name from the selected picture's filename
+    final String memberName = selectedPicture.split('.').first;
 
-  // Update the familyMembers and images lists
-  setState(() {
-    familyMembers.removeWhere((member) => member.toLowerCase() == memberName.toLowerCase());
-    images.removeWhere((imagePath) => imagePath.contains(memberName));
-  });
+    // Update the familyMembers and images lists
+    setState(() {
+      familyMembers.removeWhere(
+          (member) => member.toLowerCase() == memberName.toLowerCase());
+      images.removeWhere((imagePath) => imagePath.contains(memberName));
+    });
 
-      // Reset selectedMemberIndex if it points to a non-existent index
+    // Reset selectedMemberIndex if it points to a non-existent index
     if (selectedMemberIndex >= familyMembers.length) {
       selectedMemberIndex = -1;
     }
-}
+  }
 
   Future<List<String>> getFamilyMembers() async {
     // Get the application's documents directory
@@ -214,29 +240,20 @@ Future<void> _removePicture() async {
     final List<FileSystemEntity> files = imagesDir.listSync();
 
     // Filter out non-image files and extract names
-    final List<String> familyMembers = files
-        .where((file) {
+    final List<String> familyMembers = files.where((file) {
       final String extension = file.path.split('.').last.toLowerCase();
       return ['jpg', 'jpeg', 'png'].contains(extension);
-    })
-        .map((file) {
+    }).map((file) {
       final String filename = file.path.split('/').last;
       final String name = filename.split('.').first;
       return capitalize(name);
-    })
-        .toList();
+    }).toList();
 
     return familyMembers;
   }
+
   List<String> familyMembers = [];
   late List<String> images;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkAndPromptForImages();
-    initializeData();
-  }
 
   Future<void> _checkAndPromptForImages() async {
     final directory = await _getFamilyImagesDirectory();
@@ -291,52 +308,57 @@ Future<void> _removePicture() async {
     });
   }
 
-Future<List<String>> generateImagePaths(List<String> members) async {
-  final List<String> supportedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp'];
-  final List<String> imagePaths = [];
+  Future<List<String>> generateImagePaths(List<String> members) async {
+    final List<String> supportedExtensions = [
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'bmp'
+    ];
+    final List<String> imagePaths = [];
 
-  // Retrieve the application's documents directory
-  final Directory appDocDir = await getApplicationDocumentsDirectory();
-  final String imagesPath = '${appDocDir.path}/images/family';
-  final Directory imagesDir = Directory(imagesPath);
+    // Retrieve the application's documents directory
+    final Directory appDocDir = await getApplicationDocumentsDirectory();
+    final String imagesPath = '${appDocDir.path}/images/family';
+    final Directory imagesDir = Directory(imagesPath);
 
-  if (!await imagesDir.exists()) {
-    // If the directory doesn't exist, return an empty list
-    return imagePaths;
-  }
+    if (!await imagesDir.exists()) {
+      // If the directory doesn't exist, return an empty list
+      return imagePaths;
+    }
 
-  // List all files in the directory
-  final List<FileSystemEntity> files = imagesDir.listSync();
+    // List all files in the directory
+    final List<FileSystemEntity> files = imagesDir.listSync();
 
-  for (String member in members) {
-    String fileName = member.toLowerCase();
-    bool found = false;
+    for (String member in members) {
+      String fileName = member.toLowerCase();
+      bool found = false;
 
-    for (FileSystemEntity file in files) {
-      if (file is File) {
-        String filePath = file.path;
-        String baseName = filePath.split('/').last;
-        String nameWithoutExtension = baseName.split('.').first.toLowerCase();
-        String extension = baseName.split('.').last.toLowerCase();
+      for (FileSystemEntity file in files) {
+        if (file is File) {
+          String filePath = file.path;
+          String baseName = filePath.split('/').last;
+          String nameWithoutExtension = baseName.split('.').first.toLowerCase();
+          String extension = baseName.split('.').last.toLowerCase();
 
-        if (nameWithoutExtension == fileName && supportedExtensions.contains(extension)) {
-          imagePaths.add(filePath);
-          found = true;
-          break;
+          if (nameWithoutExtension == fileName &&
+              supportedExtensions.contains(extension)) {
+            imagePaths.add(filePath);
+            found = true;
+            break;
+          }
         }
+      }
+
+      if (!found) {
+        // Handle the case where no matching file was found for the member
+        print('No image found for member: $member');
       }
     }
 
-    if (!found) {
-      // Handle the case where no matching file was found for the member
-      print('No image found for member: $member');
-    }
+    return imagePaths;
   }
-
-  return imagePaths;
-}
-
-
 
   Future<void> loadFamilyMembers() async {
     final List<String> members = await getFamilyMembers();
@@ -364,7 +386,6 @@ Future<List<String>> generateImagePaths(List<String> members) async {
     player.setReleaseMode(ReleaseMode.stop);
     player.play(AssetSource('wheel_spin_short.mp4')); // Play the spinning sound
 
-
     // Simulate a spin delay
     Future.delayed(const Duration(seconds: 2), () {
       setState(() {
@@ -372,10 +393,10 @@ Future<List<String>> generateImagePaths(List<String> members) async {
         isSpinning = false;
       });
     });
-
   }
 
-  void showKidFriendlyDialog(BuildContext context, String title, String message) {
+  void showKidFriendlyDialog(
+      BuildContext context, String title, String message) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -426,7 +447,8 @@ Future<List<String>> generateImagePaths(List<String> members) async {
                     },
                     style: ElevatedButton.styleFrom(
                       // primary: Colors.orange,
-                      backgroundColor: Colors.white, // Sets the button's background color to green
+                      backgroundColor: Colors
+                          .white, // Sets the button's background color to green
                       foregroundColor: Colors.orange,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15),
@@ -450,22 +472,29 @@ Future<List<String>> generateImagePaths(List<String> members) async {
     );
   }
 
-
-  void guess(String guess) {
+  Future<void> guess(String guess) async {
     if (guess == familyMembers[selectedMemberIndex]) {
-
-      showKidFriendlyDialog(context, 'Correct!', 'You guessed it right!');
-      // Set the release mode to keep the source after playback has completed.
+      // showKidFriendlyDialog(context, 'Correct!', 'You guessed it right!');
+      // // Set the release mode to keep the source after playback has completed.
       player.setReleaseMode(ReleaseMode.stop);
       player.play(AssetSource('won_game.mp3')); // Play the spinning sound
-
+      _confettiController.play();
+      await Future.delayed(Duration(seconds: 4));
+      _speakCongratulatoryMessage(guess);
     } else {
-
-      showKidFriendlyDialog(context, 'Try Again!', 'That\'s not the right answer.');
+      showKidFriendlyDialog(
+          context, 'Try Again!', 'That\'s not the right answer.');
       // Set the release mode to keep the source after playback has completed.
       player.setReleaseMode(ReleaseMode.stop);
       player.play(AssetSource('lost_game.mp3')); // Play the spinning sound
     }
+  }
+
+  @override
+  void dispose() {
+    flutterTts.stop();
+    _confettiController.dispose();
+    super.dispose();
   }
 
   @override
@@ -491,8 +520,7 @@ Future<List<String>> generateImagePaths(List<String> members) async {
               padding: EdgeInsets.zero,
               children: [
                 DrawerHeader(
-                  decoration: BoxDecoration(
-                  ),
+                  decoration: BoxDecoration(),
                   child: SizedBox(height: 2),
                 ),
                 ListTile(
@@ -521,8 +549,25 @@ Future<List<String>> generateImagePaths(List<String> members) async {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.topCenter, // Adjust alignment as needed
+                  child: ConfettiWidget(
+                    confettiController: _confettiController,
+                    blastDirectionality:
+                        BlastDirectionality.explosive, // Random direction
+                    shouldLoop: false, // Stop after the duration
+                    colors: const [
+                      Colors.red,
+                      Colors.blue,
+                      Colors.green,
+                      Colors.yellow
+                    ], // Customize colors
+                    // Additional customization
+                  ),
+                ),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(150.0), // Make the image rounded
+                  borderRadius:
+                      BorderRadius.circular(150.0), // Make the image rounded
                   child: AnimatedRotation(
                     turns: isSpinning ? 3 : 0,
                     duration: const Duration(seconds: 2),
@@ -532,32 +577,37 @@ Future<List<String>> generateImagePaths(List<String> members) async {
                           : 'images/spinner.png', // Placeholder spinner image
                       height: 350,
                       width: 350,
-                      fit: BoxFit.cover, // Ensure the image covers the container
+                      fit:
+                          BoxFit.cover, // Ensure the image covers the container
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 ElevatedButton(
                   onPressed: () {
                     isSpinning ? null : spinWheel();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green, // Sets the button's background color to green
-                    foregroundColor: Colors.white, // Sets the text color to white
-                    side: BorderSide(color: Colors.white, width: 2), // Adds a white border with a width of 2
+                    backgroundColor: Colors
+                        .green, // Sets the button's background color to green
+                    foregroundColor:
+                        Colors.white, // Sets the text color to white
+                    side: BorderSide(
+                        color: Colors.white,
+                        width: 2), // Adds a white border with a width of 2
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18), // Rounds the corners with a radius of 18
+                      borderRadius: BorderRadius.circular(
+                          18), // Rounds the corners with a radius of 18
                     ),
                     padding: EdgeInsets.symmetric(horizontal: 46, vertical: 15),
                     textStyle: TextStyle(
                       fontSize: 30, // Sets the font size to 20
-                      fontWeight: FontWeight.bold, // Sets the font weight to bold
-                    ),// Adds padding inside the button
+                      fontWeight:
+                          FontWeight.bold, // Sets the font weight to bold
+                    ), // Adds padding inside the button
                   ),
                   child: Text('SPIN'), // Displays the text "SPIN" on the button
                 ),
-
                 if (selectedMemberIndex >= 0) ...[
                   const SizedBox(height: 20),
                   Container(
@@ -571,19 +621,28 @@ Future<List<String>> generateImagePaths(List<String> members) async {
                           child: ElevatedButton(
                             onPressed: () => guess(familyMembers[index]),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white, // Sets the button's background color to green
-                              foregroundColor: Colors.green, // Sets the text color to white
-                              side: BorderSide(color: Colors.green, width: 2), // Adds a white border with a width of 2
+                              backgroundColor: Colors
+                                  .white, // Sets the button's background color to green
+                              foregroundColor:
+                                  Colors.green, // Sets the text color to white
+                              side: BorderSide(
+                                  color: Colors.green,
+                                  width:
+                                      2), // Adds a white border with a width of 2
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18), // Rounds the corners with a radius of 18
+                                borderRadius: BorderRadius.circular(
+                                    18), // Rounds the corners with a radius of 18
                               ),
-                              padding: EdgeInsets.symmetric(horizontal: 36, vertical: 15),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 36, vertical: 15),
                               textStyle: TextStyle(
                                 fontSize: 30, // Sets the font size to 20
-                                fontWeight: FontWeight.bold, // Sets the font weight to bold
-                              ),// Adds padding inside the button
+                                fontWeight: FontWeight
+                                    .bold, // Sets the font weight to bold
+                              ), // Adds padding inside the button
                             ),
-                            child: Text(familyMembers[index]), // Displays the text "SPIN" on the button
+                            child: Text(familyMembers[
+                                index]), // Displays the text "SPIN" on the button
                           ),
                         );
                       },
