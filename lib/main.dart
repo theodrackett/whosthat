@@ -38,6 +38,7 @@ class _GuessScreenState extends State<GuessScreen> {
     super.initState();
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 2));
+    _configureTts();
     _checkAndPromptForImages();
     initializeData();
   }
@@ -46,14 +47,52 @@ class _GuessScreenState extends State<GuessScreen> {
       s.isNotEmpty ? s[0].toUpperCase() + s.substring(1).toLowerCase() : s;
 
   Future<void> _configureTts() async {
+    // List<dynamic> voices = await flutterTts.getVoices;
+    // Map<String, String>? selectedVoice;
+    // for (var voice in voices) {
+    //   print('Voice: $voice');
+    //   if (voice['name'].contains('Superstar')) {
+    //     selectedVoice = {'name': voice['Superstar'], 'locale': voice['en-US']};
+    //     print('Selected voice: $selectedVoice');
+    //     break;
+    //   }
+    // }
+    // if (selectedVoice != null) {
+    //   await flutterTts.setVoice(selectedVoice);
+    // }
     await flutterTts.setLanguage('en-US');
-    await flutterTts.setSpeechRate(9.9); // Adjust the rate as needed
+    await flutterTts.setSpeechRate(0.5); // Default is 0.5; range is 0.0 to 1.0
     await flutterTts.setVolume(1.0); // Volume level (0.0 to 1.0)
-    await flutterTts.setPitch(2.0); // Pitch level (0.5 to 2.0)
+    await flutterTts.setPitch(1.3); // Default is 1.0; range is 0.5 to 2.0
   }
 
   Future<void> _speakCongratulatoryMessage(String name) async {
-    String message = "You're right! That's $name!";
+    final List<dynamic> voiceNames = [
+      'Trinoids',
+      'Albert',
+      'Jester',
+      'Samantha',
+      'Whisper',
+      'Superstar',
+      'Bad News',
+      'Junior',
+      'Good News',
+      'Kathy',
+    ];
+
+    final List<dynamic> phrases = [
+      "You're right!",
+      "You guessed it!",
+      "That's correct!",
+      "You got it!",
+      "You're a genius!",
+      "You're so smart!"
+    ];
+    var randPhrase = phrases[Random().nextInt(phrases.length)];
+
+    var randVoice = voiceNames[Random().nextInt(voiceNames.length)];
+    await flutterTts.setVoice({"name": randVoice, "locale": "en-US"});
+    String message = "$randPhrase That's $name!";
     await flutterTts.speak(message);
   }
 
