@@ -63,7 +63,7 @@ class _GuessScreenState extends State<GuessScreen> {
     await flutterTts.setLanguage('en-US');
     await flutterTts.setSpeechRate(0.5); // Default is 0.5; range is 0.0 to 1.0
     await flutterTts.setVolume(1.0); // Volume level (0.0 to 1.0)
-    await flutterTts.setPitch(1.3); // Default is 1.0; range is 0.5 to 2.0
+    await flutterTts.setPitch(1.7); // Default is 1.0; range is 0.5 to 2.0
   }
 
   Future<void> _speakCongratulatoryMessage(String name) async {
