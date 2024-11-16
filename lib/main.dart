@@ -8,6 +8,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:confetti/confetti.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(WhosThatApp());
 
@@ -33,6 +35,9 @@ class _GuessScreenState extends State<GuessScreen> {
   final FlutterTts flutterTts = FlutterTts();
   late ConfettiController _confettiController;
 
+  final GlobalKey _menuKey = GlobalKey();
+  List<TargetFocus> targets = [];
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +46,69 @@ class _GuessScreenState extends State<GuessScreen> {
     _configureTts();
     _checkAndPromptForImages();
     initializeData();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      bool isFirstLaunch = prefs.getBool('first_launch') ?? true;
+      // if (isFirstLaunch) {
+      _initializeTargets();
+      showTutorial();
+      prefs.setBool('first_launch', false);
+      // }
+    });
+  }
+
+  void _initializeTargets() {
+    targets.add(
+      TargetFocus(
+        identify: "Menu",
+        keyTarget: _menuKey,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            child: Column(
+              children: [
+                Text(
+                  "Access More Features",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 20.0,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 10.0),
+                  child: Text(
+                    "Tap here to add more images to the app.",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        shape: ShapeLightFocus.Circle,
+      ),
+    );
+  }
+
+  void showTutorial() {
+    TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      textSkip: "SKIP",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        print("Tutorial finished");
+      },
+      onClickTarget: (target) {
+        print("Target clicked");
+      },
+      onSkip: () {
+        print("Tutorial skipped");
+        return true;
+      },
+    ).show(context: context);
   }
 
   String capitalize(String s) =>
@@ -552,37 +620,69 @@ class _GuessScreenState extends State<GuessScreen> {
           backgroundColor: Colors.transparent,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
+            actions: [
+              PopupMenuButton<String>(
+                key: _menuKey,
+                icon: Icon(Icons.menu),
+                onSelected: (String result) {
+                  switch (result) {
+                    case 'add_picture':
+                      _addPicture();
+                      break;
+                    case 'remove_picture':
+                      _removePicture();
+                      break;
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'add_picture',
+                    child: ListTile(
+                      leading: Icon(Icons.add_a_photo),
+                      title: Text('Add Picture'),
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'remove_picture',
+                    child: ListTile(
+                      leading: Icon(Icons.delete),
+                      title: Text('Remove Picture'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          drawer: Drawer(
-            backgroundColor: Colors.transparent,
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                DrawerHeader(
-                  decoration: BoxDecoration(),
-                  child: SizedBox(height: 2),
-                ),
-                ListTile(
-                  leading: Icon(Icons.add_a_photo),
-                  title: Text('Add Picture'),
-                  tileColor: Colors.green,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _addPicture();
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.delete),
-                  title: Text('Remove Picture'),
-                  tileColor: Colors.green,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _removePicture();
-                  },
-                ),
-              ],
-            ),
-          ),
+          // drawer: Drawer(
+          //   backgroundColor: Colors.transparent,
+          //   child: ListView(
+          //     padding: EdgeInsets.zero,
+          //     children: [
+          //       DrawerHeader(
+          //         decoration: BoxDecoration(),
+          //         child: SizedBox(height: 2),
+          //       ),
+          //       ListTile(
+          //         leading: Icon(Icons.add_a_photo),
+          //         title: Text('Add Picture'),
+          //         tileColor: Colors.green,
+          //         onTap: () {
+          //           Navigator.pop(context);
+          //           _addPicture();
+          //         },
+          //       ),
+          //       ListTile(
+          //         leading: Icon(Icons.delete),
+          //         title: Text('Remove Picture'),
+          //         tileColor: Colors.green,
+          //         onTap: () {
+          //           Navigator.pop(context);
+          //           _removePicture();
+          //         },
+          //       ),
+          //     ],
+          //   ),
+          // ),
           body: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

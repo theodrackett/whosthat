@@ -19,6 +19,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   audioplayers: ^6.1.0
   confetti: ^0.8.0
+  tutorial_coach_mark: ^1.2.12
+  shared_preferences: ^2.0.9
 
 dev_dependencies:
   flutter_test:
