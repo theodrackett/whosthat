@@ -49,11 +49,11 @@ class _GuessScreenState extends State<GuessScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       bool isFirstLaunch = prefs.getBool('first_launch') ?? true;
-      // if (isFirstLaunch) {
-      _initializeTargets();
-      showTutorial();
-      prefs.setBool('first_launch', false);
-      // }
+      if (isFirstLaunch) {
+        _initializeTargets();
+        showTutorial();
+        prefs.setBool('first_launch', false);
+      }
     });
   }
 
@@ -68,7 +68,7 @@ class _GuessScreenState extends State<GuessScreen> {
             child: Column(
               children: [
                 Text(
-                  "Access More Features",
+                  "Tap here to add more picctures.",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -98,16 +98,16 @@ class _GuessScreenState extends State<GuessScreen> {
       textSkip: "SKIP",
       paddingFocus: 10,
       opacityShadow: 0.8,
-      onFinish: () {
-        print("Tutorial finished");
-      },
-      onClickTarget: (target) {
-        print("Target clicked");
-      },
-      onSkip: () {
-        print("Tutorial skipped");
-        return true;
-      },
+      // onFinish: () {
+      //   print("Tutorial finished");
+      // },
+      // onClickTarget: (target) {
+      //   print("Target clicked");
+      // },
+      // onSkip: () {
+      //   print("Tutorial skipped");
+      //   return true;
+      // },
     ).show(context: context);
   }
 
@@ -115,53 +115,17 @@ class _GuessScreenState extends State<GuessScreen> {
       s.isNotEmpty ? s[0].toUpperCase() + s.substring(1).toLowerCase() : s;
 
   Future<void> _configureTts() async {
-    // List<dynamic> voices = await flutterTts.getVoices;
-    // Map<String, String>? selectedVoice;
-    // for (var voice in voices) {
-    //   print('Voice: $voice');
-    //   if (voice['name'].contains('Superstar')) {
-    //     selectedVoice = {'name': voice['Superstar'], 'locale': voice['en-US']};
-    //     print('Selected voice: $selectedVoice');
-    //     break;
-    //   }
-    // }
-    // if (selectedVoice != null) {
-    //   await flutterTts.setVoice(selectedVoice);
-    // }
     await flutterTts.setLanguage('en-US');
     await flutterTts.setSpeechRate(0.5); // Default is 0.5; range is 0.0 to 1.0
-    await flutterTts.setVolume(1.0); // Volume level (0.0 to 1.0)
+    await flutterTts.setVolume(8.0); // Volume level (0.0 to 1.0)
     await flutterTts.setPitch(1.7); // Default is 1.0; range is 0.5 to 2.0
   }
 
   Future<void> _speakCongratulatoryMessage(String name) async {
-    final List<dynamic> voiceNames = [
-      'Trinoids',
-      'Albert',
-      'Jester',
-      'Samantha',
-      'Whisper',
-      'Superstar',
-      'Bad News',
-      'Junior',
-      'Good News',
-      'Kathy',
-    ];
-
-    final List<dynamic> phrases = [
-      "You're right!",
-      "You guessed it!",
-      "That's correct!",
-      "You got it!",
-      "You're a genius!",
-      "You're so smart!"
-    ];
-    var randPhrase = phrases[Random().nextInt(phrases.length)];
-
-    var randVoice = voiceNames[Random().nextInt(voiceNames.length)];
-    await flutterTts.setVoice({"name": randVoice, "locale": "en-US"});
-    String message = "$randPhrase That's $name!";
-    await flutterTts.speak(message);
+    var randCongrats = Random().nextInt(14);
+    player.setReleaseMode(ReleaseMode.stop);
+    player.play(AssetSource(
+        'congrats_$randCongrats.mp3')); // Play the congratulation sound
   }
 
   Future<void> requestPhotoLibraryPermission() async {
@@ -249,9 +213,6 @@ class _GuessScreenState extends State<GuessScreen> {
     final String newPath = '$imagesPath/$name.$originalExtension';
     await File(croppedImage.path).copy(newPath);
 
-    // // Reload family members to include the new image
-    // await loadFamilyMembers();
-
     // Update familyMembers and images lists
     setState(() {
       familyMembers.add(name);
@@ -282,6 +243,23 @@ class _GuessScreenState extends State<GuessScreen> {
 
     if (pictureNames.isEmpty) {
       // Handle the case where there are no pictures to remove
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text('No Pictures Found'),
+            content: Text('There are no pictures to remove.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
       return;
     }
 
@@ -415,6 +393,26 @@ class _GuessScreenState extends State<GuessScreen> {
     });
   }
 
+  void _showNoImageFoundDialog(BuildContext context, String member) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Image Not Found'),
+          content: Text('No image found for member: $member'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<List<String>> generateImagePaths(List<String> members) async {
     final List<String> supportedExtensions = [
       'jpg',
@@ -459,8 +457,8 @@ class _GuessScreenState extends State<GuessScreen> {
       }
 
       if (!found) {
-        // Handle the case where no matching file was found for the member
-        print('No image found for member: $member');
+        // Display an alert dialog to inform the user
+        _showNoImageFoundDialog(context, member);
       }
     }
 
@@ -478,7 +476,7 @@ class _GuessScreenState extends State<GuessScreen> {
   bool isSpinning = false;
   final player = AudioPlayer();
 
-  void spinWheel() {
+  Future<void> spinWheel() async {
     setState(() {
       isSpinning = true;
     });
@@ -500,6 +498,11 @@ class _GuessScreenState extends State<GuessScreen> {
         isSpinning = false;
       });
     });
+    await player.onPlayerComplete.first;
+    var randWhosthat = Random().nextInt(3);
+    player.setReleaseMode(ReleaseMode.stop);
+    player.play(AssetSource(
+        'whosthat_$randWhosthat.mp3')); // Play the who is that sound
   }
 
   void showKidFriendlyDialog(
@@ -653,36 +656,6 @@ class _GuessScreenState extends State<GuessScreen> {
               ),
             ],
           ),
-          // drawer: Drawer(
-          //   backgroundColor: Colors.transparent,
-          //   child: ListView(
-          //     padding: EdgeInsets.zero,
-          //     children: [
-          //       DrawerHeader(
-          //         decoration: BoxDecoration(),
-          //         child: SizedBox(height: 2),
-          //       ),
-          //       ListTile(
-          //         leading: Icon(Icons.add_a_photo),
-          //         title: Text('Add Picture'),
-          //         tileColor: Colors.green,
-          //         onTap: () {
-          //           Navigator.pop(context);
-          //           _addPicture();
-          //         },
-          //       ),
-          //       ListTile(
-          //         leading: Icon(Icons.delete),
-          //         title: Text('Remove Picture'),
-          //         tileColor: Colors.green,
-          //         onTap: () {
-          //           Navigator.pop(context);
-          //           _removePicture();
-          //         },
-          //       ),
-          //     ],
-          //   ),
-          // ),
           body: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -750,7 +723,7 @@ class _GuessScreenState extends State<GuessScreen> {
                 if (selectedMemberIndex >= 0) ...[
                   const SizedBox(height: 20),
                   Container(
-                    height: 60, // Adjust the height as needed
+                    height: 70, // Adjust the height as needed
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: familyMembers.length,
