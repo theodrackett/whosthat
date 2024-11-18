@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -68,18 +69,11 @@ class _GuessScreenState extends State<GuessScreen> {
             child: Column(
               children: [
                 Text(
-                  "Tap here to add more picctures.",
+                  "Tap here to add more pictures.",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                     fontSize: 20.0,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 10.0),
-                  child: Text(
-                    "Tap here to add more images to the app.",
-                    style: TextStyle(color: Colors.white),
                   ),
                 ),
               ],
@@ -98,16 +92,6 @@ class _GuessScreenState extends State<GuessScreen> {
       textSkip: "SKIP",
       paddingFocus: 10,
       opacityShadow: 0.8,
-      // onFinish: () {
-      //   print("Tutorial finished");
-      // },
-      // onClickTarget: (target) {
-      //   print("Target clicked");
-      // },
-      // onSkip: () {
-      //   print("Tutorial skipped");
-      //   return true;
-      // },
     ).show(context: context);
   }
 
@@ -315,10 +299,9 @@ class _GuessScreenState extends State<GuessScreen> {
     final String imagesPath = '${appDocDir.path}/images/family';
     // List all files in the images directory
     final Directory imagesDir = Directory(imagesPath);
-    // Revisit on real device to see if images get copied to the directory
-    // I had to manually copy them to the directory on the emulator
     if (!await imagesDir.exists()) {
       // Handle the case where the directory doesn't exist
+
       return [];
     }
 
@@ -583,6 +566,14 @@ class _GuessScreenState extends State<GuessScreen> {
   }
 
   Future<void> guess(String guess) async {
+    Completer<void> completer = Completer<void>();
+
+    flutterTts.setCompletionHandler(() {
+      completer.complete();
+    });
+    await flutterTts.speak(guess);
+    await completer.future; // Wait for the speech to complete
+
     if (guess == familyMembers[selectedMemberIndex]) {
       // showKidFriendlyDialog(context, 'Correct!', 'You guessed it right!');
       // // Set the release mode to keep the source after playback has completed.
@@ -609,163 +600,180 @@ class _GuessScreenState extends State<GuessScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Container(
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('images/whosthatbkgrnd.png'),
-              fit: BoxFit.cover,
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints.expand(),
+        child: Stack(
+          children: [
+            Container(
+              width: double
+                  .infinity, // Ensure the container takes up the full width
+              height: double
+                  .infinity, // Ensure the container takes up the full height
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('images/whosthatbkgrnd.png'),
+                  fit: BoxFit
+                      .contain, // Use BoxFit.contain to prevent stretching
+                ),
+              ),
             ),
-          ),
-        ),
-        Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            actions: [
-              PopupMenuButton<String>(
-                key: _menuKey,
-                icon: Icon(Icons.menu),
-                onSelected: (String result) {
-                  switch (result) {
-                    case 'add_picture':
-                      _addPicture();
-                      break;
-                    case 'remove_picture':
-                      _removePicture();
-                      break;
-                  }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'add_picture',
-                    child: ListTile(
-                      leading: Icon(Icons.add_a_photo),
-                      title: Text('Add Picture'),
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'remove_picture',
-                    child: ListTile(
-                      leading: Icon(Icons.delete),
-                      title: Text('Remove Picture'),
-                    ),
+            Scaffold(
+              backgroundColor: Colors.transparent,
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                actions: [
+                  PopupMenuButton<String>(
+                    key: _menuKey,
+                    icon: Icon(Icons.menu),
+                    onSelected: (String result) {
+                      switch (result) {
+                        case 'add_picture':
+                          _addPicture();
+                          break;
+                        case 'remove_picture':
+                          _removePicture();
+                          break;
+                      }
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'add_picture',
+                        child: ListTile(
+                          leading: Icon(Icons.add_a_photo),
+                          title: Text('Add Picture'),
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'remove_picture',
+                        child: ListTile(
+                          leading: Icon(Icons.delete),
+                          title: Text('Remove Picture'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.topCenter, // Adjust alignment as needed
-                  child: ConfettiWidget(
-                    confettiController: _confettiController,
-                    blastDirectionality:
-                        BlastDirectionality.explosive, // Random direction
-                    shouldLoop: false, // Stop after the duration
-                    colors: const [
-                      Colors.red,
-                      Colors.blue,
-                      Colors.green,
-                      Colors.yellow
-                    ], // Customize colors
-                    // Additional customization
-                  ),
-                ),
-                ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(150.0), // Make the image rounded
-                  child: AnimatedRotation(
-                    turns: isSpinning ? 3 : 0,
-                    duration: const Duration(seconds: 2),
-                    child: Image.asset(
-                      selectedMemberIndex >= 0
-                          ? images[selectedMemberIndex]
-                          : 'images/spinner.png', // Placeholder spinner image
-                      height: 350,
-                      width: 350,
-                      fit:
-                          BoxFit.cover, // Ensure the image covers the container
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 20),
+                    Align(
+                      alignment:
+                          Alignment.topCenter, // Adjust alignment as needed
+                      child: ConfettiWidget(
+                        confettiController: _confettiController,
+                        blastDirectionality:
+                            BlastDirectionality.explosive, // Random direction
+                        shouldLoop: false, // Stop after the duration
+                        colors: const [
+                          Colors.red,
+                          Colors.blue,
+                          Colors.green,
+                          Colors.yellow
+                        ], // Customize colors
+                        // Additional customization
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    isSpinning ? null : spinWheel();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors
-                        .green, // Sets the button's background color to green
-                    foregroundColor:
-                        Colors.white, // Sets the text color to white
-                    side: BorderSide(
-                        color: Colors.white,
-                        width: 2), // Adds a white border with a width of 2
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                          18), // Rounds the corners with a radius of 18
-                    ),
-                    padding: EdgeInsets.symmetric(horizontal: 46, vertical: 15),
-                    textStyle: TextStyle(
-                      fontSize: 30, // Sets the font size to 20
-                      fontWeight:
-                          FontWeight.bold, // Sets the font weight to bold
-                    ), // Adds padding inside the button
-                  ),
-                  child: Text('SPIN'), // Displays the text "SPIN" on the button
-                ),
-                if (selectedMemberIndex >= 0) ...[
-                  const SizedBox(height: 20),
-                  Container(
-                    height: 70, // Adjust the height as needed
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: familyMembers.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: ElevatedButton(
-                            onPressed: () => guess(familyMembers[index]),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors
-                                  .white, // Sets the button's background color to green
-                              foregroundColor:
-                                  Colors.green, // Sets the text color to white
-                              side: BorderSide(
-                                  color: Colors.green,
-                                  width:
-                                      2), // Adds a white border with a width of 2
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                    18), // Rounds the corners with a radius of 18
-                              ),
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 36, vertical: 15),
-                              textStyle: TextStyle(
-                                fontSize: 30, // Sets the font size to 20
-                                fontWeight: FontWeight
-                                    .bold, // Sets the font weight to bold
-                              ), // Adds padding inside the button
-                            ),
-                            child: Text(familyMembers[
-                                index]), // Displays the text "SPIN" on the button
+                    Flexible(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(
+                            150.0), // Make the image rounded
+                        child: AnimatedRotation(
+                          turns: isSpinning ? 3 : 0,
+                          duration: const Duration(seconds: 2),
+                          child: Image.asset(
+                            selectedMemberIndex >= 0
+                                ? images[selectedMemberIndex]
+                                : 'images/spinner.png', // Placeholder spinner image
+                            height: 350,
+                            width: 350,
+                            fit: BoxFit
+                                .cover, // Ensure the image covers the container
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ],
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () {
+                        isSpinning ? null : spinWheel();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors
+                            .green, // Sets the button's background color to green
+                        foregroundColor:
+                            Colors.white, // Sets the text color to white
+                        side: BorderSide(
+                            color: Colors.white,
+                            width: 2), // Adds a white border with a width of 2
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                              18), // Rounds the corners with a radius of 18
+                        ),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 46, vertical: 15),
+                        textStyle: TextStyle(
+                          fontSize: 30, // Sets the font size to 20
+                          fontWeight:
+                              FontWeight.bold, // Sets the font weight to bold
+                        ), // Adds padding inside the button
+                      ),
+                      child: Text(
+                          'SPIN'), // Displays the text "SPIN" on the button
+                    ),
+                    if (selectedMemberIndex >= 0) ...[
+                      const SizedBox(height: 20),
+                      Container(
+                        height: 70, // Adjust the height as needed
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: familyMembers.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8.0),
+                              child: ElevatedButton(
+                                onPressed: () => guess(familyMembers[index]),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors
+                                      .white, // Sets the button's background color to green
+                                  foregroundColor: Colors
+                                      .green, // Sets the text color to white
+                                  side: BorderSide(
+                                      color: Colors.green,
+                                      width:
+                                          2), // Adds a white border with a width of 2
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                        18), // Rounds the corners with a radius of 18
+                                  ),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 36, vertical: 15),
+                                  textStyle: TextStyle(
+                                    fontSize: 30, // Sets the font size to 20
+                                    fontWeight: FontWeight
+                                        .bold, // Sets the font weight to bold
+                                  ), // Adds padding inside the button
+                                ),
+                                child: Text(familyMembers[
+                                    index]), // Displays the text "SPIN" on the button
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
