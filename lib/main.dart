@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -12,7 +13,15 @@ import 'package:confetti/confetti.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-void main() => runApp(WhosThatApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]).then((_) {
+    runApp(WhosThatApp());
+  });
+}
 
 class WhosThatApp extends StatelessWidget {
   @override
@@ -477,8 +486,14 @@ class _GuessScreenState extends State<GuessScreen> {
     // Simulate a spin delay
     Future.delayed(const Duration(seconds: 2), () {
       setState(() {
-        selectedMemberIndex = Random().nextInt(familyMembers.length);
-        isSpinning = false;
+        if (familyMembers.isEmpty) {
+          selectedMemberIndex = -1;
+          isSpinning = false;
+          return;
+        } else {
+          selectedMemberIndex = Random().nextInt(familyMembers.length);
+          isSpinning = false;
+        }
       });
     });
     await player.onPlayerComplete.first;
