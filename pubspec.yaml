@@ -1,4 +1,4 @@
-name: whosthat
+name: Family_Face_Finder
 description: "A game that lets kids guess which family member"
 
 publish_to: "none" # Remove this line if you wish to publish to pub.dev

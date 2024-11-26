@@ -27,6 +27,7 @@ class WhosThatApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Who\'s That?',
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -473,7 +474,7 @@ class _GuessScreenState extends State<GuessScreen> {
       isSpinning = true;
     });
 
-    // Give thanks to Sound Effect from <a href="https://pixabay.com/sound-effects/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=36693">Pixabay</a>
+    // Sound Effect from <a href="https://pixabay.com/sound-effects/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=36693">Pixabay</a>
     // Sound Effect by <a href="https://pixabay.com/users/pw23check-44527802/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=218995">PW23CHECK</a> from <a href="https://pixabay.com/sound-effects//?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=218995">Pixabay</a>
     // Sound Effect from <a href="https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=91932">Pixabay</a>
     // Sound Effect from <a href="https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=89697">Pixabay</a>
@@ -600,7 +601,6 @@ class _GuessScreenState extends State<GuessScreen> {
     } else {
       showKidFriendlyDialog(
           context, 'Try Again!', 'That\'s not the right answer.');
-      // Set the release mode to keep the source after playback has completed.
       player.setReleaseMode(ReleaseMode.stop);
       player.play(AssetSource('lost_game.mp3')); // Play the spinning sound
     }
