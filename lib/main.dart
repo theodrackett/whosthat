@@ -24,6 +24,8 @@ void main() {
 }
 
 class WhosThatApp extends StatelessWidget {
+  const WhosThatApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -38,6 +40,8 @@ class WhosThatApp extends StatelessWidget {
 }
 
 class GuessScreen extends StatefulWidget {
+  const GuessScreen({super.key});
+
   @override
   _GuessScreenState createState() => _GuessScreenState();
 }
@@ -197,7 +201,7 @@ class _GuessScreenState extends State<GuessScreen> {
 
     // Save cropped image with the provided name and original extension
     final Directory appDocDir = await getApplicationDocumentsDirectory();
-    final String imagesPath = '${appDocDir.path}/images/family';
+    final String imagesPath = '${appDocDir.path}/assets/images';
     final Directory imagesDir = Directory(imagesPath);
 
     if (!await imagesDir.exists()) {
@@ -217,7 +221,7 @@ class _GuessScreenState extends State<GuessScreen> {
   Future<void> _removePicture() async {
     // Retrieve the application's documents directory
     final Directory appDocDir = await getApplicationDocumentsDirectory();
-    final String imagesPath = '${appDocDir.path}/images/family';
+    final String imagesPath = '${appDocDir.path}/assets/images';
     final Directory imagesDir = Directory(imagesPath);
 
     if (!await imagesDir.exists()) {
@@ -306,7 +310,7 @@ class _GuessScreenState extends State<GuessScreen> {
   Future<List<String>> getFamilyMembers() async {
     // Get the application's documents directory
     final Directory appDocDir = await getApplicationDocumentsDirectory();
-    final String imagesPath = '${appDocDir.path}/images/family';
+    final String imagesPath = '${appDocDir.path}/assets/images';
     // List all files in the images directory
     final Directory imagesDir = Directory(imagesPath);
     if (!await imagesDir.exists()) {
@@ -326,7 +330,6 @@ class _GuessScreenState extends State<GuessScreen> {
       final String name = filename.split('.').first;
       return capitalize(name);
     }).toList();
-
     return familyMembers;
   }
 
@@ -343,7 +346,7 @@ class _GuessScreenState extends State<GuessScreen> {
 
   Future<Directory> _getFamilyImagesDirectory() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final familyDir = Directory('${appDir.path}/images/family');
+    final familyDir = Directory('${appDir.path}/assets/images');
     if (!await familyDir.exists()) {
       await familyDir.create(recursive: true);
     }
@@ -418,7 +421,7 @@ class _GuessScreenState extends State<GuessScreen> {
 
     // Retrieve the application's documents directory
     final Directory appDocDir = await getApplicationDocumentsDirectory();
-    final String imagesPath = '${appDocDir.path}/images/family';
+    final String imagesPath = '${appDocDir.path}/assets/images';
     final Directory imagesDir = Directory(imagesPath);
 
     if (!await imagesDir.exists()) {
@@ -591,7 +594,6 @@ class _GuessScreenState extends State<GuessScreen> {
     await completer.future; // Wait for the speech to complete
 
     if (guess == familyMembers[selectedMemberIndex]) {
-      // showKidFriendlyDialog(context, 'Correct!', 'You guessed it right!');
       // // Set the release mode to keep the source after playback has completed.
       player.setReleaseMode(ReleaseMode.stop);
       player.play(AssetSource('won_game.mp3')); // Play the spinning sound
@@ -700,14 +702,18 @@ class _GuessScreenState extends State<GuessScreen> {
                         child: AnimatedRotation(
                           turns: isSpinning ? 3 : 0,
                           duration: const Duration(seconds: 2),
-                          child: Image.asset(
-                            selectedMemberIndex >= 0
-                                ? images[selectedMemberIndex]
-                                : 'images/spinner.png', // Placeholder spinner image
+                          child: selectedMemberIndex >= 0 && File(images[selectedMemberIndex]).existsSync()
+                              ? Image.file(
+                            File(images[selectedMemberIndex]),
                             height: 350,
                             width: 350,
-                            fit: BoxFit
-                                .cover, // Ensure the image covers the container
+                            fit: BoxFit.cover, // Ensure the image covers the container
+                          )
+                              : Image.asset(
+                            'images/spinner.png', // Placeholder spinner image
+                            height: 350,
+                            width: 350,
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
@@ -742,7 +748,7 @@ class _GuessScreenState extends State<GuessScreen> {
                     ),
                     if (selectedMemberIndex >= 0) ...[
                       const SizedBox(height: 20),
-                      Container(
+                      SizedBox(
                         height: 70, // Adjust the height as needed
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,

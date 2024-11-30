@@ -1,4 +1,4 @@
-name: Family_Face_Finder
+name: whosthat
 description: "A game that lets kids guess which family member"
 
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
@@ -12,10 +12,10 @@ dependencies:
   flutter:
     sdk: flutter
   path_provider: ^2.0.11
-  image_picker: ^0.8.5+3
+  image_picker: ^1.1.2
   image_cropper: ^8.0.2
   permission_handler: ^11.3.1
-  flutter_tts: ^3.5.1
+  flutter_tts: ^4.2.0
   cupertino_icons: ^1.0.8
   audioplayers: ^6.1.0
   confetti: ^0.8.0
@@ -33,5 +33,5 @@ flutter:
 
   assets:
     - images/
-    - images/family/
     - assets/
+    - assets/images/
