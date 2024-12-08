@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
@@ -49,6 +50,7 @@ class GuessScreen extends StatefulWidget {
 class _GuessScreenState extends State<GuessScreen> {
   final FlutterTts flutterTts = FlutterTts();
   late ConfettiController _confettiController;
+  int incorrectGuessCount = 0;
 
   final GlobalKey _menuKey = GlobalKey();
   List<TargetFocus> targets = [];
@@ -180,6 +182,7 @@ class _GuessScreenState extends State<GuessScreen> {
           content: TextField(
             controller: nameController,
             decoration: InputDecoration(hintText: "Name"),
+              textCapitalization: TextCapitalization.words,
           ),
           actions: [
             TextButton(
@@ -335,6 +338,7 @@ class _GuessScreenState extends State<GuessScreen> {
 
   List<String> familyMembers = [];
   late List<String> images;
+  String obscurationType = "None";
 
   Future<void> _checkAndPromptForImages() async {
     final directory = await _getFamilyImagesDirectory();
@@ -475,13 +479,8 @@ class _GuessScreenState extends State<GuessScreen> {
   Future<void> spinWheel() async {
     setState(() {
       isSpinning = true;
+      incorrectGuessCount = 0; // Reset the incorrect guess count
     });
-
-    // Sound Effect from <a href="https://pixabay.com/sound-effects/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=36693">Pixabay</a>
-    // Sound Effect by <a href="https://pixabay.com/users/pw23check-44527802/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=218995">PW23CHECK</a> from <a href="https://pixabay.com/sound-effects//?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=218995">Pixabay</a>
-    // Sound Effect from <a href="https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=91932">Pixabay</a>
-    // Sound Effect from <a href="https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=89697">Pixabay</a>
-    // Sound Effect from <a href="https://pixabay.com/sound-effects/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=6008">Pixabay</a>
 
     // Set the release mode to keep the source after playback has completed.
     player.setReleaseMode(ReleaseMode.stop);
@@ -600,11 +599,17 @@ class _GuessScreenState extends State<GuessScreen> {
       _confettiController.play();
       await Future.delayed(Duration(seconds: 4));
       _speakCongratulatoryMessage(guess);
+      setState(() {
+        incorrectGuessCount = 0; // Reset the incorrect guess count
+      });
     } else {
       showKidFriendlyDialog(
           context, 'Try Again!', 'That\'s not the right answer.');
       player.setReleaseMode(ReleaseMode.stop);
       player.play(AssetSource('lost_game.mp3')); // Play the spinning sound
+      setState(() {
+        incorrectGuessCount++;
+      });
     }
   }
 
@@ -651,10 +656,15 @@ class _GuessScreenState extends State<GuessScreen> {
                         case 'remove_picture':
                           _removePicture();
                           break;
+                        default:
+                        // Handle obscuration option selections here if needed
+                          setState(() {
+                            obscurationType = result; // Update the selected obscuration type
+                          });
+                          break;
                       }
                     },
-                    itemBuilder: (BuildContext context) =>
-                        <PopupMenuEntry<String>>[
+                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                       const PopupMenuItem<String>(
                         value: 'add_picture',
                         child: ListTile(
@@ -669,8 +679,35 @@ class _GuessScreenState extends State<GuessScreen> {
                           title: Text('Remove Picture'),
                         ),
                       ),
+                      PopupMenuItem<String>(
+                        child: ExpansionTile(
+                          title: Text("Image Obscuration"),
+                          leading: Icon(Icons.blur_on),
+                          children: [
+                            ListTile(
+                              title: Text("None"),
+                              onTap: () {
+                                Navigator.pop(context, 'None'); // Pass the value back
+                              },
+                            ),
+                            ListTile(
+                              title: Text("Blur"),
+                              onTap: () {
+                                Navigator.pop(context, 'Blur'); // Pass the value back
+                              },
+                            ),
+                            ListTile(
+                              title: Text("Grid Cover"),
+                              onTap: () {
+                                Navigator.pop(context, 'Grid Cover'); // Pass the value back
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
+
                 ],
               ),
               body: Center(
@@ -697,17 +734,15 @@ class _GuessScreenState extends State<GuessScreen> {
                     ),
                     Flexible(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(
-                            150.0), // Make the image rounded
+                        borderRadius: BorderRadius.circular(150.0), // Make the image rounded
                         child: AnimatedRotation(
                           turns: isSpinning ? 3 : 0,
                           duration: const Duration(seconds: 2),
-                          child: selectedMemberIndex >= 0 && File(images[selectedMemberIndex]).existsSync()
-                              ? Image.file(
+                          child: selectedMemberIndex >= 0 &&
+                              File(images[selectedMemberIndex]).existsSync()
+                              ? getObscuredImage(
                             File(images[selectedMemberIndex]),
-                            height: 350,
-                            width: 350,
-                            fit: BoxFit.cover, // Ensure the image covers the container
+                            obscurationType, // Pass the selected obscuration type
                           )
                               : Image.asset(
                             'images/spinner.png', // Placeholder spinner image
@@ -718,6 +753,7 @@ class _GuessScreenState extends State<GuessScreen> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: () {
@@ -797,4 +833,113 @@ class _GuessScreenState extends State<GuessScreen> {
       ),
     );
   }
+  Widget getObscuredImage(File imageFile, String type) {
+    switch (type) {
+      case "Blur":
+        double revealPercentage = incorrectGuessCount * 0.25;
+        return Stack(
+          children: [
+            Image.file(
+              imageFile,
+              height: 350,
+              width: 350,
+              fit: BoxFit.cover,
+            ),
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10 * (1 - revealPercentage), sigmaY: 10 * (1 - revealPercentage)),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          ],
+        );
+      case "Grid Cover":
+        double gridSize = 4;
+        double boxSize = 350 / gridSize;
+        List<Widget> grid = [];
+        for (int i = 0; i < gridSize; i++) {
+          for (int j = 0; j < gridSize; j++) {
+            grid.add(Positioned(
+              top: i * boxSize,
+              left: j * boxSize,
+              child: Container(
+                width: boxSize,
+                height: boxSize,
+                color: Colors.black.withOpacity(0.95 * (1 - incorrectGuessCount * 0.25)),
+              ),
+            ));
+          }
+        }
+        return Stack(
+          children: [
+            Image.file(
+              imageFile,
+              height: 350,
+              width: 350,
+              fit: BoxFit.cover,
+            ),
+            ...grid,
+          ],
+        );
+      default:
+        return Image.file(
+          imageFile,
+          height: 350,
+          width: 350,
+          fit: BoxFit.cover,
+        ); // Default to no obscuration
+    }
+  }
+  Widget blurImage(File imageFile) {
+    return Stack(
+      children: [
+        Image.file(
+          imageFile,
+          height: 350,
+          width: 350,
+          fit: BoxFit.cover,
+        ),
+        Positioned.fill(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // Adjust blur level
+            child: Container(color: Colors.transparent),
+          ),
+        ),
+      ],
+    );
+  }
+  Widget gridCoverImage(File imageFile) {
+    int gridSize = 4; // Number of grid rows and columns
+    return Stack(
+      children: [
+        Image.file(
+          imageFile,
+          height: 350,
+          width: 350,
+          fit: BoxFit.cover,
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            double boxSize = constraints.maxWidth / gridSize;
+            List<Widget> grid = [];
+            for (int i = 0; i < gridSize; i++) {
+              for (int j = 0; j < gridSize; j++) {
+                grid.add(Positioned(
+                  top: i * boxSize,
+                  left: j * boxSize,
+                  child: Container(
+                    width: boxSize,
+                    height: boxSize,
+                    color: Colors.black.withOpacity(0.5), // Cover opacity
+                  ),
+                ));
+              }
+            }
+            return Stack(children: grid);
+          },
+        ),
+      ],
+    );
+  }
+
 }
