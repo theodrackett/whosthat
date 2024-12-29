@@ -51,6 +51,7 @@ class _GuessScreenState extends State<GuessScreen> {
   final FlutterTts flutterTts = FlutterTts();
   late ConfettiController _confettiController;
   int incorrectGuessCount = 0;
+  Map<String, String> familyMemberImages = {};
 
   final GlobalKey _menuKey = GlobalKey();
   List<TargetFocus> targets = [];
@@ -149,11 +150,11 @@ class _GuessScreenState extends State<GuessScreen> {
     final TextEditingController nameController = TextEditingController();
     final ImagePicker picker = ImagePicker();
 
-    // Pick image
+    // Pick an image
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image == null) return;
 
-    // Crop image
+    // Crop the image
     final CroppedFile? croppedImage = await ImageCropper().cropImage(
       sourcePath: image.path,
       aspectRatio: CropAspectRatio(ratioX: 16, ratioY: 9),
@@ -173,7 +174,7 @@ class _GuessScreenState extends State<GuessScreen> {
 
     if (croppedImage == null) return;
 
-    // Prompt for name
+    // Prompt for a name
     await showDialog(
       context: context,
       builder: (context) {
@@ -181,8 +182,8 @@ class _GuessScreenState extends State<GuessScreen> {
           title: Text('Enter Name'),
           content: TextField(
             controller: nameController,
-            decoration: InputDecoration(hintText: "Name"),
-              textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(hintText: "Person's Name"),
+            textCapitalization: TextCapitalization.words,
           ),
           actions: [
             TextButton(
@@ -199,10 +200,7 @@ class _GuessScreenState extends State<GuessScreen> {
     String name = nameController.text.trim();
     if (name.isEmpty) return;
 
-    // Extract the original extension
-    String originalExtension = image.path.split('.').last;
-
-    // Save cropped image with the provided name and original extension
+    // Generate a unique file name
     final Directory appDocDir = await getApplicationDocumentsDirectory();
     final String imagesPath = '${appDocDir.path}/assets/images';
     final Directory imagesDir = Directory(imagesPath);
@@ -211,15 +209,23 @@ class _GuessScreenState extends State<GuessScreen> {
       await imagesDir.create(recursive: true);
     }
 
-    final String newPath = '$imagesPath/$name.$originalExtension';
+    // Create unique filename with timestamp
+    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final String originalExtension = image.path.split('.').last;
+    final String newFileName = '$name-$timestamp.$originalExtension';
+    final String newPath = '$imagesPath/$newFileName';
+
     await File(croppedImage.path).copy(newPath);
 
     // Update familyMembers and images lists
     setState(() {
-      familyMembers.add(name);
-      images.add(newPath);
+      if (!familyMembers.any((member) => member.toLowerCase() == name.toLowerCase())) {
+        familyMembers.add(capitalize(name)); // Add the person's name (no duplicates)
+      }
+      images.add(newPath); // Add the new image
     });
   }
+
 
   Future<void> _removePicture() async {
     // Retrieve the application's documents directory
@@ -311,29 +317,30 @@ class _GuessScreenState extends State<GuessScreen> {
   }
 
   Future<List<String>> getFamilyMembers() async {
-    // Get the application's documents directory
     final Directory appDocDir = await getApplicationDocumentsDirectory();
     final String imagesPath = '${appDocDir.path}/assets/images';
-    // List all files in the images directory
     final Directory imagesDir = Directory(imagesPath);
-    if (!await imagesDir.exists()) {
-      // Handle the case where the directory doesn't exist
 
+    if (!await imagesDir.exists()) {
       return [];
     }
 
     final List<FileSystemEntity> files = imagesDir.listSync();
 
-    // Filter out non-image files and extract names
-    final List<String> familyMembers = files.where((file) {
+    // Extract names from file paths
+    final List<String> members = files.where((file) {
       final String extension = file.path.split('.').last.toLowerCase();
       return ['jpg', 'jpeg', 'png'].contains(extension);
     }).map((file) {
       final String filename = file.path.split('/').last;
-      final String name = filename.split('.').first;
+      final String name = filename.contains('-')
+          ? filename.split('-').first // Extract name before timestamp
+          : filename.split('.').first; // Use the whole name if no timestamp
+
       return capitalize(name);
     }).toList();
-    return familyMembers;
+
+    return members.toSet().toList(); // Remove duplicates
   }
 
   List<String> familyMembers = [];
@@ -390,75 +397,34 @@ class _GuessScreenState extends State<GuessScreen> {
     setState(() {
       familyMembers = members;
       images = imagePaths;
+      familyMemberImages = Map.fromIterables(members, imagePaths);
     });
   }
 
-  void _showNoImageFoundDialog(BuildContext context, String member) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Image Not Found'),
-          content: Text('No image found for member: $member'),
-          actions: <Widget>[
-            TextButton(
-              child: Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Future<List<String>> generateImagePaths(List<String> members) async {
-    final List<String> supportedExtensions = [
-      'jpg',
-      'jpeg',
-      'png',
-      'gif',
-      'bmp'
-    ];
-    final List<String> imagePaths = [];
-
-    // Retrieve the application's documents directory
     final Directory appDocDir = await getApplicationDocumentsDirectory();
     final String imagesPath = '${appDocDir.path}/assets/images';
     final Directory imagesDir = Directory(imagesPath);
 
     if (!await imagesDir.exists()) {
-      // If the directory doesn't exist, return an empty list
-      return imagePaths;
+      return [];
     }
 
-    // List all files in the directory
     final List<FileSystemEntity> files = imagesDir.listSync();
+    final List<String> imagePaths = [];
 
     for (String member in members) {
-      String fileName = member.toLowerCase();
-      bool found = false;
+      String fileNamePrefix = member.toLowerCase();
 
+      // Collect all matching images for this member
       for (FileSystemEntity file in files) {
         if (file is File) {
           String filePath = file.path;
-          String baseName = filePath.split('/').last;
-          String nameWithoutExtension = baseName.split('.').first.toLowerCase();
-          String extension = baseName.split('.').last.toLowerCase();
-
-          if (nameWithoutExtension == fileName &&
-              supportedExtensions.contains(extension)) {
-            imagePaths.add(filePath);
-            found = true;
-            break;
+          String baseName = filePath.split('/').last.toLowerCase();
+          if (baseName.startsWith(fileNamePrefix)) {
+            imagePaths.add(filePath); // Add all matching images
           }
         }
-      }
-
-      if (!found) {
-        // Display an alert dialog to inform the user
-        _showNoImageFoundDialog(context, member);
       }
     }
 
@@ -489,12 +455,13 @@ class _GuessScreenState extends State<GuessScreen> {
     // Simulate a spin delay
     Future.delayed(const Duration(seconds: 2), () {
       setState(() {
-        if (familyMembers.isEmpty) {
+        if (familyMembers.isEmpty || images.isEmpty) {
           selectedMemberIndex = -1;
           isSpinning = false;
           return;
         } else {
-          selectedMemberIndex = Random().nextInt(familyMembers.length);
+          // selectedMemberIndex = Random().nextInt(familyMembers.length);
+          selectedMemberIndex = Random().nextInt(images.length);
           isSpinning = false;
         }
       });
@@ -592,7 +559,8 @@ class _GuessScreenState extends State<GuessScreen> {
     await flutterTts.speak(guess);
     await completer.future; // Wait for the speech to complete
 
-    if (guess == familyMembers[selectedMemberIndex]) {
+    String selectedMember = images[selectedMemberIndex];
+    if (selectedMember.toLowerCase().contains(guess.toLowerCase())) {
       // // Set the release mode to keep the source after playback has completed.
       player.setReleaseMode(ReleaseMode.stop);
       player.play(AssetSource('won_game.mp3')); // Play the spinning sound
@@ -647,66 +615,119 @@ class _GuessScreenState extends State<GuessScreen> {
                 actions: [
                   PopupMenuButton<String>(
                     key: _menuKey,
-                    icon: Icon(Icons.menu),
+                    icon: Icon(Icons.menu, color: Colors.white, size: 30), // Enhanced Icon
+                    color: Colors.white, // Menu Background
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15), // Rounded corners
+                    ),
                     onSelected: (String result) {
-                      switch (result) {
-                        case 'add_picture':
+                      setState(() {
+                        if (result == 'add_picture') {
                           _addPicture();
-                          break;
-                        case 'remove_picture':
+                        } else if (result == 'remove_picture') {
                           _removePicture();
-                          break;
-                        default:
-                        // Handle obscuration option selections here if needed
-                          setState(() {
-                            obscurationType = result; // Update the selected obscuration type
-                          });
-                          break;
-                      }
+                        } else {
+                          obscurationType = result; // Update the selected obscuration type
+                        }
+                      });
                     },
                     itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
+                      PopupMenuItem<String>(
                         value: 'add_picture',
                         child: ListTile(
-                          leading: Icon(Icons.add_a_photo),
-                          title: Text('Add Picture'),
-                        ),
-                      ),
-                      const PopupMenuItem<String>(
-                        value: 'remove_picture',
-                        child: ListTile(
-                          leading: Icon(Icons.delete),
-                          title: Text('Remove Picture'),
+                          leading: Icon(Icons.add_a_photo, color: Colors.green),
+                          title: Text(
+                            'Add Picture',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
                         ),
                       ),
                       PopupMenuItem<String>(
-                        child: ExpansionTile(
-                          title: Text("Image Obscuration"),
-                          leading: Icon(Icons.blur_on),
-                          children: [
-                            ListTile(
-                              title: Text("None"),
-                              onTap: () {
-                                Navigator.pop(context, 'None'); // Pass the value back
-                              },
+                        value: 'remove_picture',
+                        child: ListTile(
+                          leading: Icon(Icons.delete, color: Colors.red),
+                          title: Text(
+                            'Remove Picture',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
                             ),
-                            ListTile(
-                              title: Text("Blur"),
-                              onTap: () {
-                                Navigator.pop(context, 'Blur'); // Pass the value back
-                              },
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50], // Light background for expansion tile
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: ExpansionTile(
+                            title: Row(
+                              children: [
+                                Icon(Icons.blur_on, color: Colors.blue),
+                                SizedBox(width: 10),
+                                Text(
+                                  "Peek-a-Boo Settings",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
                             ),
-                            ListTile(
-                              title: Text("Grid Cover"),
-                              onTap: () {
-                                Navigator.pop(context, 'Grid Cover'); // Pass the value back
-                              },
-                            ),
-                          ],
+                            children: [
+                              ListTile(
+                                leading: Icon(Icons.visibility, color: Colors.orange),
+                                title: Text(
+                                  "None",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context, 'None'); // Pass the value back
+                                },
+                              ),
+                              ListTile(
+                                leading: Icon(Icons.blur_circular, color: Colors.purple),
+                                title: Text(
+                                  "Blur",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context, 'Blur'); // Pass the value back
+                                },
+                              ),
+                              ListTile(
+                                leading: Icon(Icons.grid_on, color: Colors.teal),
+                                title: Text(
+                                  "Grid Cover",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context, 'Grid Cover'); // Pass the value back
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
+
 
                 ],
               ),
