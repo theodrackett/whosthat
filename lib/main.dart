@@ -52,6 +52,8 @@ class _GuessScreenState extends State<GuessScreen> {
   late ConfettiController _confettiController;
   int incorrectGuessCount = 0;
   Map<String, String> familyMemberImages = {};
+  bool isGuessCorrect =
+      false; // Add this variable to track if the guess is correct
 
   final GlobalKey _menuKey = GlobalKey();
   List<TargetFocus> targets = [];
@@ -112,8 +114,9 @@ class _GuessScreenState extends State<GuessScreen> {
     ).show(context: context);
   }
 
-  String capitalize(String s) =>
-      s.isNotEmpty ? s[0].toUpperCase() + s.substring(1).toLowerCase() : s;
+  String capitalize(String s) => s.isNotEmpty
+      ? s[0].toUpperCase() + s.substring(1).toLowerCase().trim()
+      : s;
 
   Future<void> _configureTts() async {
     await flutterTts.setLanguage('en-US');
@@ -219,13 +222,14 @@ class _GuessScreenState extends State<GuessScreen> {
 
     // Update familyMembers and images lists
     setState(() {
-      if (!familyMembers.any((member) => member.toLowerCase() == name.toLowerCase())) {
-        familyMembers.add(capitalize(name)); // Add the person's name (no duplicates)
+      if (!familyMembers
+          .any((member) => member.toLowerCase() == name.toLowerCase())) {
+        familyMembers
+            .add(capitalize(name)); // Add the person's name (no duplicates)
       }
       images.add(newPath); // Add the new image
     });
   }
-
 
   Future<void> _removePicture() async {
     // Retrieve the application's documents directory
@@ -445,6 +449,7 @@ class _GuessScreenState extends State<GuessScreen> {
   Future<void> spinWheel() async {
     setState(() {
       isSpinning = true;
+      isGuessCorrect = false; // Reset the guess correct flag
       incorrectGuessCount = 0; // Reset the incorrect guess count
     });
 
@@ -561,6 +566,9 @@ class _GuessScreenState extends State<GuessScreen> {
 
     String selectedMember = images[selectedMemberIndex];
     if (selectedMember.toLowerCase().contains(guess.toLowerCase())) {
+      setState(() {
+        isGuessCorrect = true;
+      });
       // // Set the release mode to keep the source after playback has completed.
       player.setReleaseMode(ReleaseMode.stop);
       player.play(AssetSource('won_game.mp3')); // Play the spinning sound
@@ -615,10 +623,12 @@ class _GuessScreenState extends State<GuessScreen> {
                 actions: [
                   PopupMenuButton<String>(
                     key: _menuKey,
-                    icon: Icon(Icons.menu, color: Colors.white, size: 30), // Enhanced Icon
+                    icon: Icon(Icons.menu,
+                        color: Colors.white, size: 30), // Enhanced Icon
                     color: Colors.white, // Menu Background
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15), // Rounded corners
+                      borderRadius:
+                          BorderRadius.circular(15), // Rounded corners
                     ),
                     onSelected: (String result) {
                       setState(() {
@@ -627,11 +637,13 @@ class _GuessScreenState extends State<GuessScreen> {
                         } else if (result == 'remove_picture') {
                           _removePicture();
                         } else {
-                          obscurationType = result; // Update the selected obscuration type
+                          obscurationType =
+                              result; // Update the selected obscuration type
                         }
                       });
                     },
-                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
                       PopupMenuItem<String>(
                         value: 'add_picture',
                         child: ListTile(
@@ -663,7 +675,8 @@ class _GuessScreenState extends State<GuessScreen> {
                       PopupMenuItem<String>(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.blue[50], // Light background for expansion tile
+                            color: Colors.blue[
+                                50], // Light background for expansion tile
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: ExpansionTile(
@@ -683,7 +696,8 @@ class _GuessScreenState extends State<GuessScreen> {
                             ),
                             children: [
                               ListTile(
-                                leading: Icon(Icons.visibility, color: Colors.orange),
+                                leading: Icon(Icons.visibility,
+                                    color: Colors.orange),
                                 title: Text(
                                   "None",
                                   style: TextStyle(
@@ -692,11 +706,13 @@ class _GuessScreenState extends State<GuessScreen> {
                                   ),
                                 ),
                                 onTap: () {
-                                  Navigator.pop(context, 'None'); // Pass the value back
+                                  Navigator.pop(
+                                      context, 'None'); // Pass the value back
                                 },
                               ),
                               ListTile(
-                                leading: Icon(Icons.blur_circular, color: Colors.purple),
+                                leading: Icon(Icons.blur_circular,
+                                    color: Colors.purple),
                                 title: Text(
                                   "Blur",
                                   style: TextStyle(
@@ -705,11 +721,13 @@ class _GuessScreenState extends State<GuessScreen> {
                                   ),
                                 ),
                                 onTap: () {
-                                  Navigator.pop(context, 'Blur'); // Pass the value back
+                                  Navigator.pop(
+                                      context, 'Blur'); // Pass the value back
                                 },
                               ),
                               ListTile(
-                                leading: Icon(Icons.grid_on, color: Colors.teal),
+                                leading:
+                                    Icon(Icons.grid_on, color: Colors.teal),
                                 title: Text(
                                   "Grid Cover",
                                   style: TextStyle(
@@ -718,7 +736,8 @@ class _GuessScreenState extends State<GuessScreen> {
                                   ),
                                 ),
                                 onTap: () {
-                                  Navigator.pop(context, 'Grid Cover'); // Pass the value back
+                                  Navigator.pop(context,
+                                      'Grid Cover'); // Pass the value back
                                 },
                               ),
                             ],
@@ -727,8 +746,6 @@ class _GuessScreenState extends State<GuessScreen> {
                       ),
                     ],
                   ),
-
-
                 ],
               ),
               body: Center(
@@ -755,26 +772,26 @@ class _GuessScreenState extends State<GuessScreen> {
                     ),
                     Flexible(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(150.0), // Make the image rounded
+                        borderRadius: BorderRadius.circular(
+                            150.0), // Make the image rounded
                         child: AnimatedRotation(
                           turns: isSpinning ? 3 : 0,
                           duration: const Duration(seconds: 2),
                           child: selectedMemberIndex >= 0 &&
-                              File(images[selectedMemberIndex]).existsSync()
+                                  File(images[selectedMemberIndex]).existsSync()
                               ? getObscuredImage(
-                            File(images[selectedMemberIndex]),
-                            obscurationType, // Pass the selected obscuration type
-                          )
+                                  File(images[selectedMemberIndex]),
+                                  obscurationType, // Pass the selected obscuration type
+                                )
                               : Image.asset(
-                            'images/spinner.png', // Placeholder spinner image
-                            height: 350,
-                            width: 350,
-                            fit: BoxFit.cover,
-                          ),
+                                  'images/spinner.png', // Placeholder spinner image
+                                  height: 350,
+                                  width: 350,
+                                  fit: BoxFit.cover,
+                                ),
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: () {
@@ -854,7 +871,16 @@ class _GuessScreenState extends State<GuessScreen> {
       ),
     );
   }
+
   Widget getObscuredImage(File imageFile, String type) {
+    if (isGuessCorrect) {
+      return Image.file(
+        imageFile,
+        height: 350,
+        width: 350,
+        fit: BoxFit.cover,
+      );
+    }
     switch (type) {
       case "Blur":
         double revealPercentage = incorrectGuessCount * 0.25;
@@ -868,7 +894,9 @@ class _GuessScreenState extends State<GuessScreen> {
             ),
             Positioned.fill(
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10 * (1 - revealPercentage), sigmaY: 10 * (1 - revealPercentage)),
+                filter: ImageFilter.blur(
+                    sigmaX: 10 * (1 - revealPercentage),
+                    sigmaY: 10 * (1 - revealPercentage)),
                 child: Container(color: Colors.transparent),
               ),
             ),
@@ -886,7 +914,8 @@ class _GuessScreenState extends State<GuessScreen> {
               child: Container(
                 width: boxSize,
                 height: boxSize,
-                color: Colors.black.withOpacity(0.95 * (1 - incorrectGuessCount * 0.25)),
+                color: Colors.black.withAlpha(
+                    ((0.92 * (1 - incorrectGuessCount * 0.25)) * 255).toInt()),
               ),
             ));
           }
@@ -911,6 +940,7 @@ class _GuessScreenState extends State<GuessScreen> {
         ); // Default to no obscuration
     }
   }
+
   Widget blurImage(File imageFile) {
     return Stack(
       children: [
@@ -922,13 +952,15 @@ class _GuessScreenState extends State<GuessScreen> {
         ),
         Positioned.fill(
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // Adjust blur level
+            filter:
+                ImageFilter.blur(sigmaX: 10, sigmaY: 10), // Adjust blur level
             child: Container(color: Colors.transparent),
           ),
         ),
       ],
     );
   }
+
   Widget gridCoverImage(File imageFile) {
     int gridSize = 4; // Number of grid rows and columns
     return Stack(
@@ -951,7 +983,8 @@ class _GuessScreenState extends State<GuessScreen> {
                   child: Container(
                     width: boxSize,
                     height: boxSize,
-                    color: Colors.black.withOpacity(0.5), // Cover opacity
+                    color: Colors.black
+                        .withAlpha((0.5 * 255).toInt()), // Cover opacity
                   ),
                 ));
               }
@@ -962,5 +995,4 @@ class _GuessScreenState extends State<GuessScreen> {
       ],
     );
   }
-
 }
